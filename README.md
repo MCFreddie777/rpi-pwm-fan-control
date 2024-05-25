@@ -18,11 +18,27 @@ Corporation September 2005, revision 1.3), to read the FAN speed using the tacho
 
 ## How to use
 ### Get repository
-```sh
+```shell
 $ git clone git@github.com:alexfukahori/rpi-pwm-fan-control.git
 $ cd rpi-pwm-fan-control
 $ pip3 install -r requirements.txt
+```
+
+### Run the script
+```shell
 $ python3 ./rpi-pwmfan.py
+```
+
+### Use the script as a background service
+Please edit the `rpi-pwm-fan-control.service` file and replace the `absolute_path_to_this_repo` with your path.
+E.g.: `ExecStart=python3 /home/pi/scripts/rpi-pwm-fan-control/rpi-pwmfan.py`
+
+Then run following commands:
+
+```shell
+$ sudo cp rpi-pwm-fan-control.service /etc/systemd/system
+$ sudo systemctl daemon-reload
+$ sudo systemctl enable rpi-pwm-fan-control
 ```
 
 ## TODO List
