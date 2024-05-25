@@ -12,7 +12,6 @@ Corporation September 2005, revision 1.3), to read the FAN speed using the tacho
 
 ## Dependencies
 * [Python 3](https://www.python.org/download/releases/3.0/) - The script interpreter
-* [WiringPi-Python](https://github.com/WiringPi/WiringPi-Python) - Control Hardware features of Rasbberry Pi
 
 ## Documentations
 * [Noctua white paper](https://noctua.at/pub/media/wysiwyg/Noctua_PWM_specifications_white_paper.pdf) - Noctua PWM specifications white paper
