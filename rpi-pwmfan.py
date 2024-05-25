@@ -2,19 +2,19 @@
 
 import wiringpi as wiringpi
 import time
-from time import sleep 
+from time import sleep
 
-PWM_PIN = 12    # HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
+PWM_PIN = 12  # HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
 RPM_MAX = 5000  # Noctua Specs: Max=5000
 RPM_MIN = 1500  # Noctua Specs: Min=1000
 TACHO_PIN = 6
-MAX_TEMP = 60   # Above this temperature, the FAN is at max speed
-LOW_TEMP = 55   # Lowest temperature, if lowest of this, the FAN is Off
-WAIT = 2        # Interval before adjusting RPM (seconds)
+MAX_TEMP = 60  # Above this temperature, the FAN is at max speed
+LOW_TEMP = 55  # Lowest temperature, if lowest of this, the FAN is Off
+WAIT = 2  # Interval before adjusting RPM (seconds)
 
 PERCENT_TEMP = (MAX_TEMP - LOW_TEMP) / 100.0
 
-rpmChkStartTime=None
+rpmChkStartTime = None
 rpmPulse = 0
 
 ###PID Parameters###
@@ -27,158 +27,168 @@ PID_MAX = 100
 
 
 class PID_Controller:
-	def __init__(self, kp, ki, kd, tau, limMin, limMax):
-		self.kp=kp
-		self.ki=ki
-		self.kd=kd
-		self.tau=tau
-		self.limMin=limMin
-		self.limMax=limMax
-		self.time=WAIT
-		self.integrator=0
-		self.prevError=0
-		self.differentiator=0
-		self.prevMeasure=0
-		self.out=0
-	def update(self, setpoint, measure):
-		error=setpoint-measure
-		#error=measure-setpoint
-		#Proportional gain
-		proportional=self.kp*error
-		#Integral gain
-		self.integrator=self.integrator+0.5*self.ki*self.time*(error+self.prevError)
-		#Anti-wind-up
-		if self.limMax>proportional:
-			intLimMax=self.limMax-proportional
-		else:
-			intLimMax=0
-		if self.limMin<proportional:
-			intLimMin=self.limMin-proportional
-		else:
-			intLimMin=0
-		#Clamp integrator
-		if self.integrator>intLimMax:
-			self.integrator=intLimMax
-		else:
-			self.integrator=intLimMin
-		#Differentiator gain
-		self.differentiator=(2*self.kd*measure-self.prevMeasure)+(2*self.tau-self.time)*self.differentiator/(2*self.tau+self.time)
-		#Calculate output
-		self.out=proportional+self.integrator+self.differentiator
-		#Apply limits
-		if self.out > self.limMax:
-			self.out=self.limMax
-		elif self.out < self.limMin:
-			self.out=self.limMin
-		#Store data
-		print(self.prevError)
-		self.prevError=error
-		print(self.prevError)
-		self.prevMeasure=measure
+    def __init__(self, kp, ki, kd, tau, limMin, limMax):
+        self.kp = kp
+        self.ki = ki
+        self.kd = kd
+        self.tau = tau
+        self.limMin = limMin
+        self.limMax = limMax
+        self.time = WAIT
+        self.integrator = 0
+        self.prevError = 0
+        self.differentiator = 0
+        self.prevMeasure = 0
+        self.out = 0
+    
+    def update(self, setpoint, measure):
+        error = setpoint - measure
+        # error=measure-setpoint
+        # Proportional gain
+        proportional = self.kp * error
+        # Integral gain
+        self.integrator = self.integrator + 0.5 * self.ki * self.time * (error + self.prevError)
+        # Anti-wind-up
+        if self.limMax > proportional:
+            intLimMax = self.limMax - proportional
+        else:
+            intLimMax = 0
+        if self.limMin < proportional:
+            intLimMin = self.limMin - proportional
+        else:
+            intLimMin = 0
+        # Clamp integrator
+        if self.integrator > intLimMax:
+            self.integrator = intLimMax
+        else:
+            self.integrator = intLimMin
+        # Differentiator gain
+        self.differentiator = (2 * self.kd * measure - self.prevMeasure) + (
+                2 * self.tau - self.time) * self.differentiator / (2 * self.tau + self.time)
+        # Calculate output
+        self.out = proportional + self.integrator + self.differentiator
+        # Apply limits
+        if self.out > self.limMax:
+            self.out = self.limMax
+        elif self.out < self.limMin:
+            self.out = self.limMin
+        # Store data
+        print(self.prevError)
+        self.prevError = error
+        print(self.prevError)
+        self.prevMeasure = measure
 
-myPID=PID_Controller(KP,KI,KD,TAU,PID_MIN,PID_MAX)
+
+myPID = PID_Controller(KP, KI, KD, TAU, PID_MIN, PID_MAX)
+
 
 def getCPUTemp():
-	f=open('/sys/class/thermal/thermal_zone0/temp', 'r')
-	temp=f.readline()
-	f.close()
-	ret=float(temp)/1000
-	return ret
+    f = open('/sys/class/thermal/thermal_zone0/temp', 'r')
+    temp = f.readline()
+    f.close()
+    ret = float(temp) / 1000
+    return ret
+
 
 def tachoISR():
-	global rpmPulse
-	#print("interruption!!!")
-	rpmPulse+=1
-	return
+    global rpmPulse
+    # print("interruption!!!")
+    rpmPulse += 1
+    return
+
 
 def setupTacho():
-	global rpmChkStartTime
+    global rpmChkStartTime
+    
+    print("Setting up Tacho input pin")
+    wiringpi.wiringPiSetupGpio()
+    wiringpi.pinMode(TACHO_PIN, wiringpi.INPUT)
+    wiringpi.pullUpDnControl(TACHO_PIN, wiringpi.PUD_UP)
+    rpmChkStartTime = time.time()
+    # print("{:4d}".format(wiringpi.INT_EDGE_FALLING))
+    wiringpi.wiringPiISR(TACHO_PIN, wiringpi.INT_EDGE_FALLING, tachoISR)
+    return
 
-	print("Setting up Tacho input pin")
-	wiringpi.wiringPiSetupGpio()
-	wiringpi.pinMode(TACHO_PIN, wiringpi.INPUT)
-	wiringpi.pullUpDnControl(TACHO_PIN, wiringpi.PUD_UP)
-	rpmChkStartTime=time.time()
-	#print("{:4d}".format(wiringpi.INT_EDGE_FALLING))
-	wiringpi.wiringPiISR(TACHO_PIN, wiringpi.INT_EDGE_FALLING, tachoISR)
-	return
 
 def readRPM():
-	global rpmPulse, rpmChkStartTime
-	fanPulses=2
+    global rpmPulse, rpmChkStartTime
+    fanPulses = 2
+    
+    duration = time.time() - rpmChkStartTime
+    frequency = rpmPulse / duration
+    ret = int(frequency * 60 / fanPulses)
+    rpmChkStartTime = time.time()
+    rpmPulse = 0
+    print("Frequency {:3.2f} | RPM:{:4d}".format(frequency, ret))
+    #	with open('/tmp/adf-fanspeed', 'w') as f:
+    #		f.write(str(ret)+'\n')
+    #		f.close();
+    return ret
 
-	duration=time.time()-rpmChkStartTime
-	frequency=rpmPulse/duration
-	ret=int(frequency*60/fanPulses)
-	rpmChkStartTime=time.time()
-	rpmPulse=0
-	print("Frequency {:3.2f} | RPM:{:4d}".format(frequency,ret))
-#	with open('/tmp/adf-fanspeed', 'w') as f:
-#		f.write(str(ret)+'\n')
-#		f.close();
-	return ret
 
 def fanOn():
-	wiringpi.pwmWrite(PWM_PIN, RPM_MAX)
-	return
+    wiringpi.pwmWrite(PWM_PIN, RPM_MAX)
+    return
+
 
 def updateFanSpeed():
-	temp=getCPUTemp()
-	myPID.update(LOW_TEMP, temp)
-	#percentDiff = 45
+    temp = getCPUTemp()
+    myPID.update(LOW_TEMP, temp)
+    # percentDiff = 45
+    
+    if myPID.out < 0:
+        percentDiff = 0
+    else:
+        percentDiff = myPID.out
+    
+    with open('/tmp/adf-fanspeed', 'w') as f:
+        f.write(str(percentDiff) + '\n')
+        f.close();
+    
+    # percentDiff = 100-myPID.out
+    # diff=temp-lowTemp
+    # percentDiff = 0
+    # if diff > 0:
+    #	percentDiff=diff/percentTemp
+    pwmDuty = int(percentDiff * RPM_MAX / 100.0)
+    
+    print(myPID.out)
+    wiringpi.pwmWrite(PWM_PIN, pwmDuty)
+    # print("currTemp {:4.2f} tempDiff {:4.2f} percentDiff {:4.2f} pwmDuty {:5.0f}".format(temp, diff, percentDiff, pwmDuty))
+    return
 
-
-	if myPID.out < 0:
-		percentDiff = 0
-	else:
-                percentDiff = myPID.out
-
-	with open('/tmp/adf-fanspeed', 'w') as f:
-		f.write(str(percentDiff)+'\n')
-		f.close();
-
-        #percentDiff = 100-myPID.out
-	#diff=temp-lowTemp
-	#percentDiff = 0
-	#if diff > 0:
-	#	percentDiff=diff/percentTemp
-	pwmDuty=int(percentDiff * RPM_MAX / 100.0)
-
-	print(myPID.out)
-	wiringpi.pwmWrite(PWM_PIN, pwmDuty)
-	#print("currTemp {:4.2f} tempDiff {:4.2f} percentDiff {:4.2f} pwmDuty {:5.0f}".format(temp, diff, percentDiff, pwmDuty))
-	return
 
 def setup():
-	wiringpi.wiringPiSetupGpio()
-	#wiringpi.pinMode(pwmPin, 2) #HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
-	wiringpi.pinMode(PWM_PIN, wiringpi.PWM_OUTPUT)
+    wiringpi.wiringPiSetupGpio()
+    # wiringpi.pinMode(pwmPin, 2) #HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
+    wiringpi.pinMode(PWM_PIN, wiringpi.PWM_OUTPUT)
+    
+    wiringpi.pwmSetClock(768)  # Set PWM divider of base clock 19.2Mhz to 25Khz (Intel's recommendation for PWM FANs)
+    wiringpi.pwmSetRange(RPM_MAX)  # Range setted
+    
+    wiringpi.pwmWrite(PWM_PIN, RPM_MAX)  # Setting to the max PWM
+    return
 
-	wiringpi.pwmSetClock(768) #Set PWM divider of base clock 19.2Mhz to 25Khz (Intel's recommendation for PWM FANs)
-	wiringpi.pwmSetRange(RPM_MAX) #Range setted
-
-	wiringpi.pwmWrite(PWM_PIN, RPM_MAX) # Setting to the max PWM
-	return
 
 def main():
-	print("PWM FAN control starting")
-	setup()
-	setupTacho()
-	#fanOn()
+    print("PWM FAN control starting")
+    setup()
+    setupTacho()
+    # fanOn()
+    
+    while True:
+        try:
+            updateFanSpeed()
+            readRPM()
+            sleep(WAIT)
+        except KeyboardInterrupt:
+            fanOn()
+            break
+        except e:
+            print("Something went wrong")
+            print(e)
+            fanOn()
 
-	while True:
-		try:
-			updateFanSpeed()
-			readRPM()
-			sleep(WAIT)
-		except KeyboardInterrupt:
-			fanOn()
-			break
-		except e:
-			print("Something went wrong")
-			print(e)
-			fanOn()
 
 if __name__ == "__main__":
-	main()
-
+    main()
