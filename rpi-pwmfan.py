@@ -4,14 +4,15 @@ import wiringpi as wiringpi
 import time
 from time import sleep 
 
-pwmPin = 12 #HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
-pwmRange = 5000
-tachoPin = 6
-lowTemp = 55 # Lowest temperature, if lowest of this, the FAN is Off
-maxTemp = 60 # Higher than it, the FAN is on full speed
-check_sec = 2 #Time to check temperature and set FAN speed
+PWM_PIN = 12    # HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
+RPM_MAX = 5000  # Noctua Specs: Max=5000
+RPM_MIN = 1500  # Noctua Specs: Min=1000
+TACHO_PIN = 6
+MAX_TEMP = 60   # Above this temperature, the FAN is at max speed
+LOW_TEMP = 55   # Lowest temperature, if lowest of this, the FAN is Off
+WAIT = 2        # Interval before adjusting RPM (seconds)
 
-percentTemp = (maxTemp-lowTemp)/100.0
+PERCENT_TEMP = (MAX_TEMP - LOW_TEMP) / 100.0
 
 rpmChkStartTime=None
 rpmPulse = 0
@@ -33,7 +34,7 @@ class PID_Controller:
 		self.tau=tau
 		self.limMin=limMin
 		self.limMax=limMax
-		self.time=check_sec
+		self.time=WAIT
 		self.integrator=0
 		self.prevError=0
 		self.differentiator=0
@@ -95,11 +96,11 @@ def setupTacho():
 
 	print("Setting up Tacho input pin")
 	wiringpi.wiringPiSetupGpio()
-	wiringpi.pinMode(tachoPin,wiringpi.INPUT)
-	wiringpi.pullUpDnControl(tachoPin,wiringpi.PUD_UP)
+	wiringpi.pinMode(TACHO_PIN, wiringpi.INPUT)
+	wiringpi.pullUpDnControl(TACHO_PIN, wiringpi.PUD_UP)
 	rpmChkStartTime=time.time()
 	#print("{:4d}".format(wiringpi.INT_EDGE_FALLING))
-	wiringpi.wiringPiISR(tachoPin,wiringpi.INT_EDGE_FALLING,tachoISR)
+	wiringpi.wiringPiISR(TACHO_PIN, wiringpi.INT_EDGE_FALLING, tachoISR)
 	return
 
 def readRPM():
@@ -118,12 +119,12 @@ def readRPM():
 	return ret
 
 def fanOn():
-	wiringpi.pwmWrite(pwmPin,pwmRange)
+	wiringpi.pwmWrite(PWM_PIN, RPM_MAX)
 	return
 
 def updateFanSpeed():
 	temp=getCPUTemp()
-	myPID.update(lowTemp,temp)
+	myPID.update(LOW_TEMP, temp)
 	#percentDiff = 45
 
 
@@ -141,22 +142,22 @@ def updateFanSpeed():
 	#percentDiff = 0
 	#if diff > 0:
 	#	percentDiff=diff/percentTemp
-	pwmDuty=int(percentDiff*pwmRange/100.0)
+	pwmDuty=int(percentDiff * RPM_MAX / 100.0)
 
 	print(myPID.out)
-	wiringpi.pwmWrite(pwmPin, pwmDuty)
+	wiringpi.pwmWrite(PWM_PIN, pwmDuty)
 	#print("currTemp {:4.2f} tempDiff {:4.2f} percentDiff {:4.2f} pwmDuty {:5.0f}".format(temp, diff, percentDiff, pwmDuty))
 	return
 
 def setup():
 	wiringpi.wiringPiSetupGpio()
 	#wiringpi.pinMode(pwmPin, 2) #HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
-	wiringpi.pinMode(pwmPin,wiringpi.PWM_OUTPUT)
+	wiringpi.pinMode(PWM_PIN, wiringpi.PWM_OUTPUT)
 
 	wiringpi.pwmSetClock(768) #Set PWM divider of base clock 19.2Mhz to 25Khz (Intel's recommendation for PWM FANs)
-	wiringpi.pwmSetRange(pwmRange) #Range setted
+	wiringpi.pwmSetRange(RPM_MAX) #Range setted
 
-	wiringpi.pwmWrite(pwmPin, pwmRange) # Setting to the max PWM
+	wiringpi.pwmWrite(PWM_PIN, RPM_MAX) # Setting to the max PWM
 	return
 
 def main():
@@ -169,7 +170,7 @@ def main():
 		try:
 			updateFanSpeed()
 			readRPM()
-			sleep(check_sec)
+			sleep(WAIT)
 		except KeyboardInterrupt:
 			fanOn()
 			break
