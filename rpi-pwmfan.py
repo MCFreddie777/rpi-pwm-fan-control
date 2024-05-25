@@ -12,8 +12,6 @@ MAX_TEMP = 60  # Above this temperature, the FAN is at max speed
 LOW_TEMP = 55  # Lowest temperature, if lowest of this, the FAN is Off
 WAIT = 2  # Interval before adjusting RPM (seconds)
 
-PERCENT_TEMP = (MAX_TEMP - LOW_TEMP) / 100.0
-
 rpmChkStartTime = None
 rpmPulse = 0
 
@@ -92,7 +90,6 @@ def getCPUTemp():
 
 def tachoISR():
     global rpmPulse
-    # print("interruption!!!")
     rpmPulse += 1
     return
 
@@ -105,7 +102,6 @@ def setupTacho():
     wiringpi.pinMode(TACHO_PIN, wiringpi.INPUT)
     wiringpi.pullUpDnControl(TACHO_PIN, wiringpi.PUD_UP)
     rpmChkStartTime = time.time()
-    # print("{:4d}".format(wiringpi.INT_EDGE_FALLING))
     wiringpi.wiringPiISR(TACHO_PIN, wiringpi.INT_EDGE_FALLING, tachoISR)
     return
 
@@ -120,9 +116,6 @@ def readRPM():
     rpmChkStartTime = time.time()
     rpmPulse = 0
     print("Frequency {:3.2f} | RPM:{:4d}".format(frequency, ret))
-    #	with open('/tmp/adf-fanspeed', 'w') as f:
-    #		f.write(str(ret)+'\n')
-    #		f.close();
     return ret
 
 
@@ -134,7 +127,6 @@ def fanOn():
 def updateFanSpeed():
     temp = getCPUTemp()
     myPID.update(LOW_TEMP, temp)
-    # percentDiff = 45
     
     if myPID.out < 0:
         percentDiff = 0
@@ -145,22 +137,15 @@ def updateFanSpeed():
         f.write(str(percentDiff) + '\n')
         f.close();
     
-    # percentDiff = 100-myPID.out
-    # diff=temp-lowTemp
-    # percentDiff = 0
-    # if diff > 0:
-    #	percentDiff=diff/percentTemp
     pwmDuty = int(percentDiff * RPM_MAX / 100.0)
     
     print(myPID.out)
     wiringpi.pwmWrite(PWM_PIN, pwmDuty)
-    # print("currTemp {:4.2f} tempDiff {:4.2f} percentDiff {:4.2f} pwmDuty {:5.0f}".format(temp, diff, percentDiff, pwmDuty))
     return
 
 
 def setup():
     wiringpi.wiringPiSetupGpio()
-    # wiringpi.pinMode(pwmPin, 2) #HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
     wiringpi.pinMode(PWM_PIN, wiringpi.PWM_OUTPUT)
     
     wiringpi.pwmSetClock(768)  # Set PWM divider of base clock 19.2Mhz to 25Khz (Intel's recommendation for PWM FANs)
@@ -174,7 +159,6 @@ def main():
     print("PWM FAN control starting")
     setup()
     setupTacho()
-    # fanOn()
     
     while True:
         try:
