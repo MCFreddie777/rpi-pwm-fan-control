@@ -24,6 +24,9 @@ $ cd rpi-pwm-fan-control
 $ pip3 install -r requirements.txt
 ```
 
+### Set GPIO pins
+Edit the `PWM_PIN` and `TACH_PIN` values in [rpi-pwmfan.py](./rpi-pwmfan.py) to match the pins used by your Pi.
+
 ### Run the script
 ```shell
 $ python3 ./rpi-pwmfan.py

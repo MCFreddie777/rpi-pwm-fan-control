@@ -5,7 +5,7 @@ import pigpio
 
 # Pin configuration
 PWM_PIN = 12  # Pin to drive PWM fan - HW PWM works on GPIO 12, 13, 18 and 19 on RPi4B
-TACH_PIN = 24  # Fan's tachometer output pin
+TACH_PIN = 6  # Fan's tachometer output pin
 
 # Temperature thresholds
 MAX_TEMP = 70  # [°C] Above this temperature, the fan is at max speed
