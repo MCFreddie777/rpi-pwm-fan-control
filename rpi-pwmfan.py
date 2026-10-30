@@ -53,7 +53,7 @@ def getFanRPM():
     
     dt = time.time() - t
     if dt < 0.002:
-        return  # Reject spuriously short pulses
+        return 0.0  # Reject spuriously short pulses
     
     frequency = rpm_pulse / dt
     rpm = (frequency / PULSE) * 60
@@ -121,7 +121,7 @@ def main():
                 setFanRPM(RPM_MAX)
             elif temp >= MIN_TEMP:
                 delta = temp - MIN_TEMP
-                rpm = min(RPM_MAX, max(RPM_MIN, int(RPM_MIN + delta)))
+                rpm = min(RPM_MAX, max(RPM_MIN, int(RPM_MIN + (RPM_MAX - RPM_MIN) * delta / (MAX_TEMP - MIN_TEMP))))
                 setFanRPM(rpm)
             elif temp < OFF_TEMP:
                 setFanRPM(RPM_OFF)
@@ -137,6 +137,7 @@ def main():
             print("Something went wrong")
             print(e)
             cleanup()
+            raise
 
 
 if __name__ == "__main__":
