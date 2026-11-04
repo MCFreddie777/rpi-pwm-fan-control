@@ -98,20 +98,21 @@ def setup():
 
 
 def cleanup():
-    # Turn off the fan
-    set_fan_rpm(RPM_OFF)
+    try:
+        # Turn off the fan
+        set_fan_rpm(RPM_OFF)
 
-    # Pin mode cleanup
-    if orig_pwm_pin_mode != -1:
-        pi.set_mode(PWM_PIN, orig_pwm_pin_mode)
+        # Pin mode cleanup
+        if orig_pwm_pin_mode != -1:
+            pi.set_mode(PWM_PIN, orig_pwm_pin_mode)
 
-    if orig_tach_pin_mode != -1:
-        pi.set_mode(TACH_PIN, orig_tach_pin_mode)
+        if orig_tach_pin_mode != -1:
+            pi.set_mode(TACH_PIN, orig_tach_pin_mode)
 
-    if tach_pin_callback is not None:
-        tach_pin_callback.cancel()  # Remove the callback associated with the tachometer pin
-
-    pi.stop()
+        if tach_pin_callback is not None:
+            tach_pin_callback.cancel()  # Remove the callback associated with the tachometer pin
+    finally:
+        pi.stop()  # Runs even if the cleanup above raised (e.g. pigpiod died, or a second Ctrl+C/SIGTERM), so the pigpio connection is always released
     return
 
 
