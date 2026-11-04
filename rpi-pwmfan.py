@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+import signal
 import time
 import pigpio
 
@@ -114,6 +115,7 @@ def cleanup():
 
 def main():
     print("PWM FAN control starting...")
+    signal.signal(signal.SIGTERM, signal.default_int_handler)  # Handle systemctl stop like Ctrl+C
     setup()
 
     while True:
