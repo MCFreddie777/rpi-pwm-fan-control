@@ -85,6 +85,7 @@ def setup():
     # Set pin modes
     pi.set_mode(PWM_PIN, pigpio.ALT5)  # ALT5 mode for hardware PWM
     pi.set_mode(TACH_PIN, pigpio.INPUT)
+    pi.set_pull_up_down(TACH_PIN, pigpio.PUD_UP)  # Tachometer is open-collector, needs a pull-up
 
     # Add event to detect tachometer pulse
     tach_pin_callback = pi.callback(
